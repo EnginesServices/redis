@@ -15,8 +15,94 @@
         "level": "alpha",
         "patch": 0
       }
-    }
+    },
+    "software": {
+      "display": {
+        "title": "redis",
+        "label": "redis"
+      }
+    },
+    "timestamp": "2017-11-20T11:25:03+11:00"
   },
   "software": {
+    "base": {
+      "name": "redis",
+      "accepts": [
+        "ManagedEngine",
+        "ManagedService"
+      ],
+      "publisher_namespace": "EnginesSystem",
+      "type_path": "redis",
+      "service_handle_field": "port",
+      "parent_image": "engines/servicesbase",
+      "run_as_user": "redis",
+      "deployment_type": "worker",
+      "memory": {
+        "required": 64
+      }
+    },
+    "scripts": {
+      "start": {
+        "language": "sh",
+        "content": "#!/bin/bash\r\n\r\nPID_FILE=/var/run/engines/redis-server.pid\r\nexport PID_FILE\r\n. /home/engines/functions/trap.sh\r\n\r\nservice_clear_restart_required\r\n\r\nmkdir /home/redis/config.d/\r\n\r\nconfigs=`ls /home/redis/config.d/*.redis.config`\r\nfor config in $configs\r\n do\r\n    redis-server $config &\r\n\techo -n $! >> $PID_FILE\r\n\techo -n \" \" >> $PID_FILE\r\ndone\r\n\r\nstartup_complete\r\n\r\n  while test 0 -ne 1\r\n   do\r\n\tsleep 5 &\r\n\twait\r\n    exit_code=$?\r\n\t\r\n\tif test ` ls /tmp/new_service.* 2>/dev/null| wc -l ` -ne 0 \r\n\tthen\r\n\t\tfor service in ` ls /tmp/new_service.* |cut -f2 -d.`\r\n\t\t  do\r\n\t\t  \tredis-server /home/redis/config.d/$service.redis.config &\r\n\t\t  \techo -n $!  > /var/run/engines/redis-server.$parent_engine.pid\r\n\t\t  done\r\n\tfi\r\n   done\t\r\n\r\n\r\nshutdown_complete\r\n\r\n"
+      }
+    },
+    "service_configurations": [
+      {
+        "publisher_namespace": "EnginesSystem",
+        "type_path": "filesystem/local/filesystem",
+        "variables": {
+          "service_name": "redis_store",
+          "volume_src": "",
+          "engine_path": " /var/lib/redis",
+          "permissions": "rw",
+          "user": "redis",
+          "group": "redis"
+        }
+      }
+    ],
+    "target_environment_variables": [
+      {
+        "variable_name": "password",
+        "environment_variable_name": "redis_password"
+      },
+      {
+        "variable_name": "port",
+        "environment_variable_name": "redis_port"
+      },
+      {
+        "variable_name": "hostname",
+        "environment_variable_name": "redis_hostname"
+      }
+    ],
+    "consumer_params": [
+      {
+        "name": "password",
+        "value": "_Engines_System(random(16))",
+        "mandatory": true,
+        "input": {
+          "type": "password_with_confirmation",
+          "label": "Password"
+        }
+      },
+      {
+        "name": "port",
+        "value": "_Engines_System(service_resource(redis,next_port))",
+        "mandatory": true,
+        "immutable": true,
+        "input": {
+          "type": "integer",
+          "label": "Port"
+        }
+      },
+      {
+        "name": "hostname",
+        "value": "redis._Engines_System(internal_domain)",
+        "mandatory": true,
+        "input": {
+          "type": "string"
+        }
+      }
+    ]
   }
 }
